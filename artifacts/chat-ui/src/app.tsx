@@ -66,7 +66,6 @@ export default function App() {
               <Route path="/" element={<Help setPageId="home" />} />
               <Route path="/document-chat" element={<Help setPageId="doc-chat" />} />
               <Route path="/document-chat/manage-document" element={<Help setPageId="doc-chat-manage" />} />
-              <Route path="/sentiment-analysis" element={<Help setPageId="sentiment" />} />
               <Route path="/ocr" element={<Help setPageId="ocr" />} />
               <Route path="*" element={<Help setPageId="404" />} />
             </Routes>
@@ -83,12 +82,11 @@ export default function App() {
           }}
           items={[
             {
-              type: "link-group", text: "Document Chat", href: "#/document-chat",
+              type: "link-group", text: "Chat with LLM", href: "#/document-chat",
               items: [
                 { type: "link", text: "Manage Documents", href: "#/document-chat/manage-document" },
               ]
             },
-            { type: "link", text: "Sentiment Analysis", href: "#/sentiment-analysis" },
             { type: "link", text: "OCR", href: "#/ocr" },
           ]}
         />}
@@ -98,7 +96,6 @@ export default function App() {
               <Route path="/" element={<HomePage />} />
               <Route path="/document-chat" element={<ChatPage setAppData={setAppData} manageDocument={false} />} />
               <Route path="/document-chat/manage-document" element={<ChatPage setAppData={setAppData} manageDocument={true} />} />
-              <Route path="/sentiment-analysis" element={<SentimentPage setAppData={setAppData} />} />
               <Route path="/ocr" element={<OcrPage setAppData={setAppData} />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
