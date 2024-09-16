@@ -73,7 +73,7 @@ export default function App() {
         notifications={(notificationVisible) ? <Alert dismissible statusIconAriaLabel="Warning" type="warning" onDismiss={() => setNotificationVisible(false)}>{notificationMsg}</Alert> : ""}
         navigation={<SideNavigation
           activeHref={activeHref}
-          header={{ href: "#/", text: "Apps" }}
+          header={{ href: "#/", text: "Accelerators" }}
           onFollow={event => {
             if (!event.detail.external) {
               setActiveHref(event.detail.href);
