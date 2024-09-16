@@ -31,7 +31,7 @@ export default function App() {
     if (appData.userinfo != null) {
       setUtility([{
         type: "menu-dropdown",
-        text: "Profile",
+        text: "Logout",
         description: appData.userinfo.signInDetails.loginId,
         iconName: "user-profile",
         onItemClick: (e) => {

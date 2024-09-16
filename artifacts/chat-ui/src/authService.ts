@@ -34,6 +34,12 @@ export const signIn = async (username: string, password: string) => {
 };
 
 export const signUp = async (email: string, password: string) => {
+
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@amazon\.com$/;
+  if (!emailRegex.test(email)) {
+    throw new Error("Registration is only allowed with an @amazon.com email address.");
+  }
+  
   const params = {
     ClientId: config.clientId,
     Username: email,
