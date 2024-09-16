@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { Routes, Route, HashRouter } from 'react-router-dom';
-import { AppLayout, TopNavigation, SideNavigation, Badge, Alert } from '@cloudscape-design/components';
+import { AppLayout, TopNavigation, SideNavigation, Alert } from '@cloudscape-design/components';
 import { Hub } from 'aws-amplify/utils';
 import { signOut } from 'aws-amplify/auth';
 import { AppContext } from "./common/context";
-import { NotFound, ChatPage, AgentPage, OcrPage, SentimentPage, HomePage, Help, PIIPage } from './pages'
+import { NotFound, ChatPage, HomePage, Help} from './pages'
 import '@aws-amplify/ui-react/styles.css';
 
 export default function App() {
@@ -54,6 +54,10 @@ export default function App() {
           href: '#',
           title: 'IPS Contract Orchestrator (Development)',
         }}
+
+        utilities={[
+          ...utility
+        ]}
 
       /></div>
       <AppLayout
