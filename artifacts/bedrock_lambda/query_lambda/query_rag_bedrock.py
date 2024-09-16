@@ -44,74 +44,6 @@ awsauth = AWS4Auth(credentials.access_key, credentials.secret_key,
 list_of_tools_specs = []
 tool_names = []
 tool_descriptions = []
-
-def pii_redact(user_input, model_id, connect_id):
-    prompt_template = {
-                        "anthropic_version": "bedrock-2023-05-31",
-                        "max_tokens": 10000,
-                        "system": pii_redact_prompt,
-                        "messages": json.loads(user_input)
-    }
-    LOG.debug(f'Sentiment prompt_template {prompt_template}')
-    invoke_model(0, prompt_template, connect_id, True, model_id)
-
-def query_sentiment(user_input, model_id, connect_id):
-    prompt_template = {
-                        "anthropic_version": "bedrock-2023-05-31",
-                        "max_tokens": 10000,
-                        "system": sentiment_prompt,
-                        "messages": json.loads(user_input)
-    }
-    LOG.debug(f'Sentiment prompt_template {prompt_template}')
-    invoke_model(0, prompt_template, connect_id, True, model_id)
-    
-
-def perform_ocr(user_input, model_id, connect_id):
-    LOG.info(f'method=perform_ocr, user_input={user_input}, model_id={model_id}, connect_id={connect_id}')
-    user_input_json = json.loads(user_input)
-    for chat in user_input_json:
-        if 'role' in chat and chat['role'] == 'user':
-            for message in chat['content']:
-                if message['type'] == 'document' and 'file_name' in message:
-                    file_name = message['file_name']
-                    s3_key = f"ocr/data/{file_name}"
-                    file_extension = s3_key[s3_key.rindex('.')+1:]
-                    content = get_file_from_s3(s3_bucket_name, s3_key)
-                    if file_extension.lower() in ['pdf']:
-                        reader = PdfReader(BytesIO(content))
-                        LOG.debug(f'method=process_file_upload, num_of_pages={len(reader.pages)}')
-                        for page in reader.pages:
-                            websocket_send(connect_id, { "text": f"Page {page.page_number}" } )
-                            text_value = None
-                            # Read Text on Page
-                            text_value = page.extract_text()
-                            if text_value is not None:
-                                websocket_send(connect_id, {"text": text_value})
-                            LOG.debug(f'method=perform_ocr, file_type=pdf-text, content={text_value}')
-                            # Read Image on Page
-                            img_files = []
-                            img_counter = 0
-                            for image_file_object in page.images:
-                                img_files.append(image_file_object.data)
-                                img_counter = img_counter + 1
-                                if img_counter >= 19:
-                                    # Extract through low cost LLM (Claude3-Haiku)
-                                    ocr_prompt = generate_claude_3_ocr_prompt(img_files)
-                                    LOG.debug(f'method=perform_ocr, file_type=pdf-image, content={ocr_prompt}')
-                                    invoke_model(0, ocr_prompt, connect_id, True, model_id)
-                                    img_counter=0
-                                    img_files=[]
-                            if len(img_files) > 0:
-                                # Extract through low cost LLM (Claude3-Haiku)
-                                ocr_prompt = generate_claude_3_ocr_prompt(img_files)
-                                LOG.debug(f'method=perform_ocr, file_type=pdf-image, content={ocr_prompt}')
-                                invoke_model(0, ocr_prompt, connect_id, True, model_id)
-                        websocket_send(connect_id, { "text": "ack-end-of-msg" } )
-                    elif file_extension.lower() in ['png', 'jpg']:
-                        ocr_prompt = generate_claude_3_ocr_prompt([content])
-                        LOG.debug(f'method=perform_ocr, file_type=png_jpg_image, content={ocr_prompt}')
-                        invoke_model(0, ocr_prompt, connect_id, True, model_id)   
-
                     
 def query_rag_no_agent(user_input, query_vector_db, language, model_id, is_hybrid_search, connect_id):
     global rag_chat_bot_prompt
@@ -290,20 +222,14 @@ def master_orchestrator(agent_type: str, chat_input, connect_id):
         content = prompt_flow[-1]["content"]
         content.extend([{"type": "text", "text": "\n\n If you know the answer, say it. If not, what is the next step?"}])
         
-    
-    
-    ######
     if not done:
         prompt_flow.append({"role":"assistant", "content": {type: "text", "text": "I apologize but I cant answer this question"} })
         websocket_send(connect_id, {"prompt_flow": prompt_flow, "done": True})
         return prompt_flow
 
-
-
 def invoke_model(step_id, prompt, connect_id, send_on_socket=False, model_id = "anthropic.claude-3-sonnet-20240229-v1:0"):
     result = query_bedrock_claude3_model(step_id, model_id, prompt, connect_id, send_on_socket)
     return ''.join(result)
-
 
 def query_bedrock_claude3_model(step_id, model, prompt, connect_id, send_on_socket=False):
     '''
@@ -410,7 +336,6 @@ def create_presigned_post(event):
     else:
         return http_failure_response('Missing file_extension field cannot generate signed url')
 
-
 def extract_file_extension(base64_encoded_file):
     if base64_encoded_file.find(';') > -1:
         extension = base64_encoded_file.split(';')[0]
@@ -446,15 +371,6 @@ def handler(event, context):
                 behaviour = input_to_llm['behaviour']
                 if behaviour == 'advanced-agent':
                     query_agents(behaviour, query, connect_id)
-                elif behaviour == 'sentiment':
-                    model_id = input_to_llm['model_id']
-                    query_sentiment(query, model_id, connect_id)
-                elif behaviour == 'ocr':
-                    model_id = input_to_llm['model_id']
-                    perform_ocr(query, model_id, connect_id)
-                elif behaviour == 'pii':
-                    model_id = input_to_llm['model_id']
-                    pii_redact(query, model_id, connect_id)
                 else:
                     query_vector_db = 'no'
                     if 'query_vectordb' in input_to_llm and input_to_llm['query_vectordb']=='yes':
@@ -504,7 +420,6 @@ def http_failure_response(error_message):
 def http_success_response(result):
     return {"success": True, "result": result, "statusCode": "200"}
 
-# Hack
 class CustomJsonEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, Decimal):
@@ -514,7 +429,6 @@ class CustomJsonEncoder(json.JSONEncoder):
                 return float(obj)
         return super(CustomJsonEncoder, self).default(obj)
 
-# JSON REST output builder method
 def respond(err, res=None):
     return {
         'statusCode': '400' if err else res['statusCode'],
@@ -585,7 +499,6 @@ def websocket_send(connect_id, message):
                 ConnectionId=connect_id
             )
 
-
 class CustomJsonEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, Decimal):
@@ -594,4 +507,3 @@ class CustomJsonEncoder(json.JSONEncoder):
             else:
                 return float(obj)
         return super(CustomJsonEncoder, self).default(obj)
-

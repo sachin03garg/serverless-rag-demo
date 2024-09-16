@@ -329,7 +329,7 @@ export default function ChatUIInputPanel(props: ChatUIInputPanelProps) {
         placeholder={props.inputPlaceholderText ?? "Send a message"}
       />
       <SpaceBetween size="s" direction="horizontal">
-      <FileUpload
+      {/* <FileUpload
           accept=".png,.jpg,.webp,.gif"
           onChange={({ detail }) => {
             load_base64(detail.value)
@@ -352,7 +352,7 @@ export default function ChatUIInputPanel(props: ChatUIInputPanelProps) {
           showFileLastModified
           showFileSize
           showFileThumbnail
-        />
+        /> */}
         <Button
           disabled={props.running || isDisabled || inputText.trim().length === 0}
           onClick={onSendMessage}

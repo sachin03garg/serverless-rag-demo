@@ -21,8 +21,7 @@ import time
 import re
 LOG = logging.getLogger()
 LOG.setLevel(logging.INFO)
-# http endpoint for your cluster (opensearch required for vector index usage)
-# Self managed or cluster based OPENSEARCH
+
 endpoint = getenv("OPENSEARCH_VECTOR_ENDPOINT", "https://admin:P@@search-opsearch-public-24k5tlpsu5whuqmengkfpeypqu.us-east-1.es.amazonaws.com:443")
 SAMPLE_DATA_DIR=getenv("SAMPLE_DATA_DIR", "sample_data")
 INDEX_NAME = getenv("VECTOR_INDEX_NAME", "sample-embeddings-store-dev")
@@ -54,8 +53,6 @@ ops_client = OpenSearch(
 def create_index() :
     LOG.info(f'method=create_index')
     if not ops_client.indices.exists(index=INDEX_NAME):
-    # Create indicies
-    # Consine Simi for large datasets. With hybrid search it does a post filter on the results
         settings = {
             "settings": {
                 "index": {
@@ -84,33 +81,6 @@ def create_index() :
             },
         }
 
-        # Lucene HNSW not currently supported in serverless opensearch
-        # settings = {
-        #     "settings": {
-        #         "index": {
-        #             "knn": True
-        #         }
-        #     },
-        #     "mappings": {
-        #       "properties": {
-        #         "id": {"type": "integer"},
-        #         "text": {"type": "text"},
-        #         "embedding": {
-        #           "type": "knn_vector",
-        #           "dimension": 1024,
-        #           "method": {
-        #             "name": "hnsw",
-        #             "space_type": "l2",
-        #             "engine": "lucene",
-        #             "parameters": {
-        #               "ef_construction": 128,
-        #               "m": 24
-        #             }
-        #           }
-        #         }
-        #       }
-        #     }
-        # }
         LOG.debug(f'method=create_index, index_settings={settings}')
         res = ops_client.indices.create(index=INDEX_NAME, body=settings, ignore=[400])
         LOG.debug(f'method=create_index, index_creation_response={res}')
@@ -132,7 +102,6 @@ def index_documents(event):
     if texts is not None and len(texts) > 0:
         print(f'Number of chunks {len(texts)}')
         create_index()
-        # You will get model timeout exceptons if u increase this beyond 2
         with ThreadPoolExecutor(max_workers=2) as executor:
             futures = [executor.submit(_generate_embeddings_and_index, chunk_text, s3_source, email_id, doc_title) for chunk_text in texts]
             for future in as_completed(futures):
@@ -140,10 +109,6 @@ def index_documents(event):
                 if result['statusCode'] != "200" and 'errorMessage' in result:
                     error_messages.append(result['errorMessage'])
                     
-        # for chunk_text in texts:
-        #     result = _generate_embeddings_and_index(chunk_text, s3_source, email_id, doc_title)
-        #     if result['statusCode'] != "200":
-        #         return result
     if len(error_messages) > 0:
         return {"statusCode": "400", "errorMessage": ','.join(error_messages)}    
     return {"statusCode": "200", "message": "Documents indexed successfully"}
@@ -197,9 +162,6 @@ def _generate_embeddings_and_index(chunk_text, s3_source, email_id, doc_title):
         except Exception as e:
             LOG.error(f'method=_generate_embeddings_and_index, selected embed model: {embed_model_id}, error:{str(e)}')
             return failure_response(f'Embed model {embed_model_id}. Error {str(e)}, text {chunk_text}')
-        
-        
-        
 
 def delete_index(event):
     try:
@@ -218,8 +180,6 @@ def delete_index(event):
 def delete_documents_by_s3_uri(s3_source: str):
     REQUEST_TIMEOUT_VAL =300
     delete_body = []
-    # AOSS doesnt support custom doc ID neither does it support delete_by_query
-    # Workaround -> Search for the docs and then delete_by_id
     search_query= { 
         "query": { 
             "match": { 
@@ -303,11 +263,7 @@ def create_presigned_post(event):
             s3_key = f"{usecase_type}/data/{file_name}_{date_time}.{extension}"
         else:
             s3_key = f"{usecase_type}/data/{file_name}.{extension}"
-        # response = s3_client.generate_presigned_post(Bucket=s3_bucket_name,
-        #                                       Key=s3_key,
-        #                                       Fields=None,
-        #                                       Conditions=[]
-        #                                   )
+
         utc_now = now_utc_iso8601()
         response = s3_client.generate_presigned_post(Bucket=s3_bucket_name,
                                             Key=s3_key,
@@ -321,8 +277,6 @@ def create_presigned_post(event):
                                                         ]
                                         )
         
-        # 'x-amz-meta-email_id': email_id, 
-        # The response contains the presigned URL and required fields
         return success_response(response)
     else:
         return failure_response('Missing file_extension field cannot generate signed url')
@@ -558,27 +512,6 @@ def process_file_upload(event):
                        
     return success_response(f'File process complete for event {event}')
 
-# def generate_title_and_index_doc(event, page_number, text_value, s3_source, email_id):
-#     LOG.info(f"generate_title_index_doc, text_value={text_value}, page_no={page_number}")
-#     try:        
-#         if text_value:
-#             if page_number <2:
-#                 title_value = generate_title(text_value)
-#             text_value = f'Page Number {page_number} content: """{str(text_value)}"""'
-#             event['body'] = json.dumps({"text": text_value, 's3_source': s3_source, 'email_id': email_id})
-#             response = index_documents(event)
-#             return response
-#     except Exception as e:
-#         print(f'method=generate_title_index_doc, error={e}')
-#         return {"statusCode": "400", "errorMessage": f"Error indexing chunk on Page {page_number}, Error={str(e)}, chunk={text_value} "}
-#     return {"statusCode": "200", "message": f"Nothing to index"}
-
- 
-# def generate_title(text_snippet):
-#     title_prompt = generate_claude_3_title_prompt(text_snippet)
-#     title_value = query_bedrock(title_prompt, ocr_model_id)
-#     return title_value
-
 def query_bedrock(prompt, model_id): 
     response = bedrock_client.invoke_model(
         body=json.dumps(prompt),
@@ -671,10 +604,8 @@ def success_response(result):
 
 def truncateTable():
     global table
-    #get the table keys
     tableKeyNames = [key.get("AttributeName") for key in table.key_schema]
 
-    #Only retrieve the keys for each item in the table (minimize data transfer)
     projectionExpression = ", ".join('#' + key for key in tableKeyNames)
     expressionAttrNames = {'#'+key: key for key in tableKeyNames}
     
@@ -695,8 +626,6 @@ def truncateTable():
                 break
     LOG.info(f"Deleted {counter}")
 
-# Store the indexing metadata information in a dynamodb table
-# Triggered when a file is uploaded to S3
 def index_audit_insert(email_id, s3_uri, file_id, utc_now, error_message='None'):
     LOG.info(f'method=index_audit_insert, email_id={email_id}, s3_uri={s3_uri}')
     record = {
